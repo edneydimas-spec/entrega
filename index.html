@@ -410,6 +410,7 @@ const PRIO_CFG = {
 
 // ── ORIGEM fixa e cálculo de distância ───────────────────────────────────────
 const ORIGIN_LAT = -19.9245;   // Rua Lagoa da Prata 1188, Salgado Filho, BH-MG
+const GS_URL = 'https://script.google.com/macros/s/AKfycbx6QBR4iuGKv2rkLcGk5vU-V71EeoCiSw3Ua89fseE1ropd4At21bXCAU0vAOwQyYTOCA/exec';
 const ORIGIN_LNG = -43.9782;
 
 // Haversine — distância em km entre dois pontos lat/lng
@@ -474,6 +475,108 @@ function generateRoute(list){
   let order=1; const result=[];
   sorted.forEach(([,items])=>{ items.sort((a,b)=>a.time.localeCompare(b.time)); items.forEach(d=>result.push({...d,suggestedOrder:order++})); });
   return result;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GOOGLE SHEETS — carregar e salvar dados
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function gsLoad() {
+  try {
+    showToast('Carregando dados...');
+    const resp = await fetch(GS_URL + '?action=getAll');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    // Entregadores
+    if (data.entregadores && data.entregadores.length > 0) {
+      state.entregadores = data.entregadores.map(e => ({
+        id:       Number(e.id) || nextId(state.entregadores),
+        nome:     e.nome || '',
+        cpf:      e.cpf  || '',
+        telefone: e.telefone || '',
+        status:   e.status || 'ativo',
+      }));
+    }
+
+    // Entregas
+    if (data.entregas && data.entregas.length > 0) {
+      state.deliveries = data.entregas.map(e => ({
+        id:           Number(e.id),
+        client:       e.client || '',
+        address:      e.address || '',
+        neighborhood: e.neighborhood || '',
+        phone:        e.phone || '',
+        status:       e.status || 'pendente',
+        priority:     e.priority || 'media',
+        weight:       Number(e.weight) || 0,
+        time:         e.time || '09:00',
+        driver:       e.driver || null,
+        order:        e.order ? Number(e.order) : null,
+        taxaEspecial: e.taxaEspecial || null,
+        date:         e.date || '',
+        km:           e.km ? Number(e.km) : null,
+        _lat:         e._lat ? Number(e._lat) : null,
+        _lng:         e._lng ? Number(e._lng) : null,
+      }));
+    }
+
+    // Parametros
+    if (data.parametros && data.parametros.length > 0) {
+      const faixas = data.parametros.filter(p => p.tipo === 'faixa');
+      const especiais = data.parametros.filter(p => p.tipo === 'especial');
+      if (faixas.length > 0) {
+        state.faixas = faixas.map(f => ({
+          id:    Number(f.id),
+          label: f.label || '',
+          de:    f.de || '0',
+          ate:   f.ate || '0',
+          taxa:  f.taxa || '0',
+        }));
+      }
+      if (especiais.length > 0) {
+        state.taxasEspeciais = especiais.map(t => ({
+          id:    t.id || '',
+          label: t.label || '',
+          taxa:  t.taxa || '0',
+        }));
+      }
+    }
+
+    showToast('Dados carregados!');
+    renderMain();
+  } catch(err) {
+    showToast('Erro ao carregar dados: ' + err.message);
+    console.error('gsLoad error:', err);
+  }
+}
+
+async function gsSave(type) {
+  try {
+    let action, data;
+    if (type === 'entregadores') {
+      action = 'saveEntregadores';
+      data   = state.entregadores;
+    } else if (type === 'entregas') {
+      action = 'saveEntregas';
+      data   = state.deliveries.map(d => ({...d, _lat: d._lat||'', _lng: d._lng||''}));
+    } else if (type === 'parametros') {
+      action = 'saveParametros';
+      data   = [
+        ...state.faixas.map(f    => ({tipo:'faixa',    ...f})),
+        ...state.taxasEspeciais.map(t => ({tipo:'especial', ...t})),
+      ];
+    }
+    const url = `${GS_URL}?action=${action}&data=${encodeURIComponent(JSON.stringify(data))}`;
+    const resp = await fetch(url);
+    const result = await resp.json();
+    if (result.error) throw new Error(result.error);
+    return true;
+  } catch(err) {
+    console.error('gsSave error:', err);
+    showToast('Erro ao salvar: ' + err.message);
+    return false;
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1711,10 +1814,10 @@ function attachEvents(){
 // ══════════════════════════════════════════════════════════════════════════════
 // AÇÕES
 // ══════════════════════════════════════════════════════════════════════════════
-function updateStatus(id, status){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,status}:d); showToast('Status: '+STATUS_CFG[status].label); renderMain(); }
-function updatePriority(id, priority){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,priority}:d); showToast('Prioridade: '+PRIO_CFG[priority].label); renderMain(); }
-function updateTime(id, time){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,time}:d); showToast('Horário atualizado: '+time); }
-function assignDriver(id, driver){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,driver:driver||null,status:driver?'em_rota':'pendente'}:d); renderMain(); }
+function updateStatus(id, status){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,status}:d); showToast('Status: '+STATUS_CFG[status].label); renderMain(); gsSave('entregas'); }
+function updatePriority(id, priority){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,priority}:d); showToast('Prioridade: '+PRIO_CFG[priority].label); renderMain(); gsSave('entregas'); }
+function updateTime(id, time){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,time}:d); showToast('Horário atualizado: '+time); gsSave('entregas'); }
+function assignDriver(id, driver){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,driver:driver||null,status:driver?'em_rota':'pendente'}:d); renderMain(); gsSave('entregas'); }
 
 function openAddModal(){
   // Populate dropdowns
@@ -1923,7 +2026,7 @@ async function handleAddDelivery(){
   }
 
   closeAddModal();
-  showToast('Calculando distância...');
+  showToast('Salvando e calculando distância...');
 
   const novaEntrega = {
     id, client, address, neighborhood,
@@ -1949,8 +2052,10 @@ async function handleAddDelivery(){
       novaEntrega._lng = coords.lng;
       novaEntrega.km   = parseFloat(haversine(ORIGIN_LAT, ORIGIN_LNG, coords.lat, coords.lng).toFixed(2));
       showToast('Entrega adicionada! Distância: ' + novaEntrega.km + ' km');
+    gsSave('entregas');
     } else {
-      showToast('Entrega adicionada! (distância não calculada — endereço não encontrado)');
+      showToast('Entrega adicionada! (distância não calculada)');
+    gsSave('entregas');
     }
   } catch(e) {
     showToast('Entrega adicionada! (distância não calculada)');
@@ -1968,15 +2073,18 @@ function handleAddDriver(){
   const dup=state.entregadores.find(e=>e.cpf.replace(/\D/g,'')===state.newDriver.cpf.replace(/\D/g,''));
   if(dup){ state.driverFormError='CPF já cadastrado para '+dup.nome+'.'; renderMain(); return; }
   state.newDriver.nome = state.newDriver.nome.toUpperCase();
+  state.newDriver.nome = state.newDriver.nome.toUpperCase();
   state.entregadores.push({...state.newDriver,id:nextId(state.entregadores)});
   state._showDriverModal=false; showToast('Entregador cadastrado!'); renderMain();
+  gsSave('entregadores');
 }
-function toggleDriverStatus(id){ state.entregadores=state.entregadores.map(e=>e.id===id?{...e,status:e.status==='ativo'?'inativo':'ativo'}:e); showToast('Status atualizado!'); renderMain(); }
+function toggleDriverStatus(id){ state.entregadores=state.entregadores.map(e=>e.id===id?{...e,status:e.status==='ativo'?'inativo':'ativo'}:e); showToast('Status atualizado!'); renderMain(); gsSave('entregadores'); }
 function handleDeleteDriver(id){
   const e=state.entregadores.find(x=>x.id===id);
   state.deliveries=state.deliveries.map(d=>d.driver===e.nome?{...d,driver:null,status:'pendente',order:null}:d);
   state.entregadores=state.entregadores.filter(x=>x.id!==id);
   state.showDeleteConfirm=null; showToast(e.nome+' removido.'); renderMain();
+  gsSave('entregadores');
 }
 
 function openRoutePanel(){ state._showRoutePanel=true; state.routeResult=null; renderMain(); }
@@ -2004,6 +2112,7 @@ function salvarTaxasEspeciais(){
   }
   showToast('Taxas especiais salvas!');
   renderMain();
+  gsSave('parametros');
 }
 
 // ── EXPORTAR EXCEL ────────────────────────────────────────────────────────────
@@ -2114,6 +2223,7 @@ function salvarFaixas(){
   state.faixasSalvas=true; state.faixaSucesso=true;
   setTimeout(()=>{state.faixaSucesso=false;renderMain();},3000);
   showToast('Parâmetros salvos!'); renderMain();
+  gsSave('parametros');
 }
 
 // ── CÂMERA / IA ───────────────────────────────────────────────────────────────
@@ -2131,7 +2241,7 @@ document.getElementById('btn-expand').onclick=()=>{ state.sidebarCollapsed=false
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.getElementById('footer-date').textContent='Hoje: '+new Date().toLocaleDateString('pt-BR');
-render();
+gsLoad();
 </script>
 </body>
 </html>
