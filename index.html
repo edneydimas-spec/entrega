@@ -164,71 +164,127 @@
 <!-- TOAST -->
 <div class="toast" id="toast" style="display:none"></div>
 
-<!-- MODAL NOVA ENTREGA — elemento fixo no DOM, nunca recriado via innerHTML -->
+<!-- MODAL NOVA ENTREGA -->
 <div id="modal-entrega" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;backdrop-filter:blur(4px);align-items:center;justify-content:center;">
-  <div style="background:#1e293b;border-radius:16px;border:1px solid #334155;padding:28px;width:500px;max-width:95vw;max-height:92vh;overflow-y:auto;" onclick="event.stopPropagation()">
+  <div style="background:#1e293b;border-radius:16px;border:1px solid #334155;padding:24px;width:520px;max-width:95vw;max-height:94vh;overflow-y:auto;" onclick="event.stopPropagation()">
     <h2 style="font-size:18px;font-weight:700;margin-bottom:4px;color:#f1f5f9">📦 Nova Entrega</h2>
-    <p style="font-size:12px;color:#64748b;margin-bottom:16px">Fotografe o comprovante ou preencha manualmente.</p>
+    <p style="font-size:12px;color:#64748b;margin-bottom:16px">Busque um cliente já cadastrado ou preencha os dados manualmente.</p>
 
-    <!-- INPUT DE CÂMERA REAL — fixo no DOM, nunca destruído -->
-    <label id="lbl-cam" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;margin-bottom:14px;border-radius:10px;border:2px dashed #f97316;background:rgba(249,115,22,.08);color:#f97316;font-size:15px;font-weight:700;cursor:pointer;box-sizing:border-box;">
-      <input type="file" id="inp-cam" accept="image/*" capture="environment" style="display:none;">
-      <span id="cam-icon" style="font-size:22px">📷</span>
-      <span id="cam-text">Tirar foto / Galeria</span>
-    </label>
-
-    <!-- preview -->
-    <div id="cam-preview-wrap" style="display:none;margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid #334155;position:relative;">
-      <img id="cam-preview-img" src="" style="width:100%;max-height:140px;object-fit:cover;display:block;">
-      <div style="position:absolute;top:8px;right:8px;background:#10b981;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;color:white;">✓ Foto lida</div>
+    <!-- BUSCA DE CLIENTE -->
+    <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px;margin-bottom:16px;">
+      <div style="font-size:11px;color:#6366f1;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🔍 Buscar Cliente Cadastrado</div>
+      <div style="display:flex;gap:8px;">
+        <input id="nd-search" class="input-field" placeholder="ID, telefone, CPF ou nome..." style="flex:1"
+          oninput="buscarCliente(this.value)">
+        <button onclick="limparBusca()" class="btn-secondary" style="padding:0 12px;font-size:18px;flex-shrink:0">✕</button>
+      </div>
+      <div id="nd-search-results" style="display:none;margin-top:8px;max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
     </div>
-    <div id="cam-error" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:#f87171;font-size:12px;"></div>
 
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <!-- DIVISOR -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
       <div style="flex:1;height:1px;background:#334155;"></div>
-      <span style="font-size:11px;color:#475569;font-weight:600;">DADOS DO PEDIDO</span>
+      <span style="font-size:11px;color:#475569;font-weight:600;">DADOS DO CLIENTE</span>
       <div style="flex:1;height:1px;background:#334155;"></div>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <div>
-        <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:5px;">CLIENTE *</label>
-        <input class="input-field" id="nd-client" placeholder="Nome do cliente ou empresa">
-      </div>
-      <div>
-        <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:5px;">ENDEREÇO *</label>
-        <input class="input-field" id="nd-address" placeholder="Rua, número">
-      </div>
-      <div>
-        <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:5px;">TELEFONE</label>
-        <input class="input-field" id="nd-phone" placeholder="(00) 00000-0000" inputmode="numeric">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div style="display:flex;flex-direction:column;gap:11px;">
+
+      <!-- ID + TELEFONE -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div>
-          <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:5px;">BAIRRO</label>
-          <select class="input-field" id="nd-neighborhood"></select>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">ID DO CLIENTE *</label>
+          <input class="input-field" id="nd-cid" placeholder="Ex: 1001" inputmode="numeric" pattern="[0-9]*"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'')">
         </div>
         <div>
-          <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:5px;">PRIORIDADE</label>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">TELEFONE *</label>
+          <input class="input-field" id="nd-phone" placeholder="(00) 00000-0000" inputmode="numeric" pattern="[0-9]*"
+            oninput="this.value=maskPhone(this.value)">
+        </div>
+      </div>
+
+      <!-- CPF -->
+      <div>
+        <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">CPF</label>
+        <input class="input-field" id="nd-cpf" placeholder="000.000.000-00" inputmode="numeric" pattern="[0-9]*"
+          oninput="this.value=maskCPF(this.value)">
+      </div>
+
+      <!-- NOME -->
+      <div>
+        <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">NOME DO CLIENTE *</label>
+        <input class="input-field" id="nd-client" placeholder="Nome completo ou empresa"
+          oninput="this.value=this.value.toUpperCase()">
+      </div>
+
+      <!-- CEP + busca automática -->
+      <div>
+        <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">CEP *</label>
+        <div style="display:flex;gap:8px;">
+          <input class="input-field" id="nd-cep" placeholder="00000-000" inputmode="numeric" pattern="[0-9]*" style="flex:1"
+            oninput="this.value=maskCEP(this.value)" onblur="buscarCEP(this.value)">
+          <button onclick="buscarCEP(document.getElementById('nd-cep').value)" class="btn-secondary" style="padding:0 14px;font-size:13px;white-space:nowrap;flex-shrink:0">🔍 Buscar</button>
+        </div>
+        <div id="nd-cep-status" style="font-size:11px;margin-top:4px;color:#64748b;"></div>
+      </div>
+
+      <!-- LOGRADOURO (preenchido pelo CEP) -->
+      <div>
+        <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">LOGRADOURO *</label>
+        <input class="input-field" id="nd-logradouro" placeholder="Rua / Av. (preenchido pelo CEP)">
+      </div>
+
+      <!-- NÚMERO + COMPLEMENTO -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">NÚMERO *</label>
+          <input class="input-field" id="nd-numero" placeholder="Ex: 245" inputmode="numeric">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">COMPLEMENTO</label>
+          <input class="input-field" id="nd-complemento" placeholder="Apto, Sala...">
+        </div>
+      </div>
+
+      <!-- BAIRRO + CIDADE (preenchidos pelo CEP) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">BAIRRO *</label>
+          <input class="input-field" id="nd-bairro" placeholder="Bairro">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">CIDADE</label>
+          <input class="input-field" id="nd-cidade" placeholder="Cidade" readonly style="opacity:.7">
+        </div>
+      </div>
+
+      <!-- DIVISOR PEDIDO -->
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+        <div style="flex:1;height:1px;background:#334155;"></div>
+        <span style="font-size:11px;color:#475569;font-weight:600;">DADOS DO PEDIDO</span>
+        <div style="flex:1;height:1px;background:#334155;"></div>
+      </div>
+
+      <!-- PRIORIDADE + HORÁRIO -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">PRIORIDADE *</label>
           <select class="input-field" id="nd-priority">
             <option value="alta">Alta</option>
             <option value="media" selected>Média</option>
             <option value="baixa">Baixa</option>
           </select>
         </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div>
-          <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:5px;">PESO (kg)</label>
-          <input class="input-field" id="nd-weight" type="number" inputmode="numeric" placeholder="0">
-        </div>
-        <div>
-          <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:5px;">HORÁRIO</label>
+          <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">HORÁRIO *</label>
           <input class="input-field" id="nd-time" type="time" value="09:00">
         </div>
       </div>
+
+      <!-- ENTREGADOR -->
       <div>
-        <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:5px;">ENTREGADOR</label>
+        <label style="font-size:11px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">ENTREGADOR</label>
         <select class="input-field" id="nd-driver"></select>
       </div>
 
@@ -244,8 +300,13 @@
           <div style="margin-top:10px;font-size:11px;color:#475569;">⚠️ A taxa especial substitui a taxa por deslocamento no relatório.</div>
         </div>
       </div>
+
     </div>
-    <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end;">
+
+    <!-- ERRO -->
+    <div id="nd-error" style="display:none;margin-top:12px;padding:10px 14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:#f87171;font-size:12px;"></div>
+
+    <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
       <button class="btn-secondary" id="btn-cancel-entrega">Cancelar</button>
       <button class="btn-primary" id="btn-confirm-entrega">Adicionar Entrega</button>
     </div>
@@ -266,13 +327,11 @@ const state = {
   routeResult: null,
   showDeleteConfirm: null,
   driverFormError: '',
-  scanLoading: false,
-  scanPreview: null,
-  scanError: '',
   faixasSalvas: true,
   faixaErro: '',
   faixaSucesso: false,
-  newDelivery: { client:'', address:'', neighborhood:'Centro', priority:'media', weight:'', time:'09:00', driver:'' },
+  clientes: [],           // cadastro de clientes
+  newDelivery: { client:'', address:'', neighborhood:'Centro', priority:'media', time:'09:00', driver:'' },
   newDriver: { nome:'', cpf:'', telefone:'', status:'ativo' },
 
   deliveries: [
@@ -394,6 +453,7 @@ async function ensureCoords(list){
 // ── helpers ──────────────────────────────────────────────────────────────────
 function maskCPF(v){ const d=v.replace(/\D/g,'').slice(0,11); return d.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2'); }
 function maskPhone(v){ const d=v.replace(/\D/g,'').slice(0,11); if(d.length<=10) return d.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3').replace(/-$/,''); return d.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3').replace(/-$/,''); }
+function maskCEP(v){ const d=v.replace(/\D/g,'').slice(0,8); return d.length>5 ? d.slice(0,5)+'-'+d.slice(5) : d; }
 function h(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function stats(){ return { total:state.deliveries.length, pendentes:state.deliveries.filter(d=>d.status==='pendente').length, emRota:state.deliveries.filter(d=>d.status==='em_rota').length, entregues:state.deliveries.filter(d=>d.status==='entregue').length }; }
 function activeDriverNames(){ return state.entregadores.filter(e=>e.status==='ativo').map(e=>e.nome); }
@@ -1646,13 +1706,6 @@ function attachEvents(){
   if(phone) phone.addEventListener('input', e=>{ state.newDriver.telefone=maskPhone(e.target.value); e.target.value=state.newDriver.telefone; });
 
   // Câmera Android: input real transparente sobre o botão decorativo
-  const camInp = document.getElementById('cam-real-input');
-  if(camInp){
-    camInp.addEventListener('change', function(){
-      if(this.files && this.files[0]) processImage(this.files[0]);
-      this.value = '';
-    });
-  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1665,22 +1718,28 @@ function assignDriver(id, driver){ state.deliveries=state.deliveries.map(d=>d.id
 
 function openAddModal(){
   // Populate dropdowns
-  const nbEl = document.getElementById('nd-neighborhood');
-  nbEl.innerHTML = NEIGHBORHOODS.map(n=>`<option value="${n}">${n}</option>`).join('');
+  // Populate driver dropdown
   const drEl = document.getElementById('nd-driver');
-  drEl.innerHTML = '<option value="">— sem entregador —</option>' + activeDriverNames().map(n=>`<option value="${n}">${n}</option>`).join('');
-  // Clear fields
-  document.getElementById('nd-client').value = '';
-  document.getElementById('nd-address').value = '';
-  document.getElementById('nd-phone').value = '';
-  document.getElementById('nd-weight').value = '';
-  document.getElementById('nd-time').value = '09:00';
-  document.getElementById('nd-priority').value = 'media';
-  document.getElementById('cam-preview-wrap').style.display = 'none';
-  document.getElementById('cam-error').style.display = 'none';
-  document.getElementById('cam-icon').textContent = '📷';
-  document.getElementById('cam-text').textContent = 'Tirar foto / Galeria';
-  document.getElementById('lbl-cam').style.display = 'flex';
+  if(drEl) drEl.innerHTML = '<option value="">— sem entregador —</option>' + activeDriverNames().map(n=>`<option value="${n}">${n}</option>`).join('');
+  // Clear all fields
+  ['nd-client','nd-address','nd-phone','nd-search','nd-cid','nd-cpf',
+   'nd-cep','nd-logradouro','nd-numero','nd-complemento','nd-bairro'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  const ndCity = document.getElementById('nd-cidade');
+  if(ndCity) ndCity.value = '';
+  const ndTime = document.getElementById('nd-time');
+  if(ndTime) ndTime.value = '09:00';
+  const ndPrio = document.getElementById('nd-priority');
+  if(ndPrio) ndPrio.value = 'media';
+  const srEl = document.getElementById('nd-search-results');
+  if(srEl){ srEl.innerHTML=''; srEl.style.display='none'; }
+  const cepSt = document.getElementById('nd-cep-status');
+  if(cepSt) cepSt.textContent = '';
+  const errEl = document.getElementById('nd-error');
+  if(errEl) errEl.style.display = 'none';
+
   // Reset entrega especial
   state._selectedEspecial = null;
   const ep = document.getElementById('especial-panel');
@@ -1747,34 +1806,137 @@ function updateEspecialBadge(){
     btn.style.color       = '#818cf8';
   }
 }
-async function handleAddDelivery(){
-  const client  = document.getElementById('nd-client').value.trim();
-  const address = document.getElementById('nd-address').value.trim();
-  if(!client || !address){ showToast('Preencha cliente e endereço'); return; }
+// ── CEP AUTO-FILL via ViaCEP ──────────────────────────────────────────────────
+async function buscarCEP(cep){
+  const digits = cep.replace(/\D/g,'');
+  if(digits.length !== 8) return;
+  const status = document.getElementById('nd-cep-status');
+  status.textContent = '🔍 Buscando endereço...';
+  status.style.color = '#64748b';
+  try{
+    const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+    const d = await r.json();
+    if(d.erro){ status.textContent = '⚠️ CEP não encontrado.'; status.style.color='#f87171'; return; }
+    document.getElementById('nd-logradouro').value = d.logradouro || '';
+    document.getElementById('nd-bairro').value     = d.bairro     || '';
+    document.getElementById('nd-cidade').value     = d.localidade + ' - ' + d.uf || '';
+    status.textContent = '✓ Endereço encontrado!';
+    status.style.color = '#10b981';
+    document.getElementById('nd-numero').focus();
+  } catch(e){
+    status.textContent = '⚠️ Erro ao buscar CEP.';
+    status.style.color = '#f87171';
+  }
+}
 
+// ── BUSCA DE CLIENTE ──────────────────────────────────────────────────────────
+function buscarCliente(q){
+  const el = document.getElementById('nd-search-results');
+  q = q.trim();
+  if(q.length < 2){ el.style.display='none'; el.innerHTML=''; return; }
+  const q2 = q.toLowerCase();
+  const found = state.clientes.filter(c=>
+    String(c.id).includes(q) ||
+    (c.telefone||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')) ||
+    (c.cpf||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')) ||
+    (c.nome||'').toLowerCase().includes(q2)
+  ).slice(0,6);
+  if(found.length===0){
+    el.innerHTML='<div style="padding:8px 12px;font-size:12px;color:#475569">Nenhum cliente encontrado</div>';
+  } else {
+    el.innerHTML = found.map(c=>`
+      <div onclick="preencherCliente(${c.id})"
+        style="padding:10px 12px;border-radius:7px;background:#1e293b;border:1px solid #334155;cursor:pointer;transition:all .2s"
+        onmouseover="this.style.borderColor='#6366f1'" onmouseout="this.style.borderColor='#334155'">
+        <div style="font-size:13px;font-weight:600;color:#f1f5f9">${c.nome} <span style="color:#475569;font-size:11px;font-weight:400">ID: ${c.id}</span></div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">${c.telefone||''} ${c.cpf?'· CPF: '+c.cpf:''}</div>
+        <div style="font-size:11px;color:#64748b">${c.logradouro||''} ${c.numero||''}, ${c.bairro||''}</div>
+      </div>`).join('');
+  }
+  el.style.display = 'flex';
+  el.style.flexDirection = 'column';
+}
+
+function preencherCliente(id){
+  const c = state.clientes.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('nd-cid').value        = c.id;
+  document.getElementById('nd-phone').value      = c.telefone || '';
+  document.getElementById('nd-cpf').value        = c.cpf || '';
+  document.getElementById('nd-client').value     = c.nome || '';
+  document.getElementById('nd-cep').value        = c.cep || '';
+  document.getElementById('nd-logradouro').value = c.logradouro || '';
+  document.getElementById('nd-numero').value     = c.numero || '';
+  document.getElementById('nd-complemento').value= c.complemento || '';
+  document.getElementById('nd-bairro').value     = c.bairro || '';
+  document.getElementById('nd-cidade').value     = c.cidade || '';
+  document.getElementById('nd-search').value     = '';
+  document.getElementById('nd-search-results').style.display = 'none';
+  showToast('Cliente ' + c.nome + ' selecionado!');
+}
+
+function limparBusca(){
+  document.getElementById('nd-search').value = '';
+  document.getElementById('nd-search-results').style.display = 'none';
+  document.getElementById('nd-search-results').innerHTML = '';
+}
+
+// ── NOVA ENTREGA ──────────────────────────────────────────────────────────────
+async function handleAddDelivery(){
+  const client     = document.getElementById('nd-client').value.trim();
+  const cid        = document.getElementById('nd-cid').value.trim();
+  const phone      = document.getElementById('nd-phone').value.trim();
+  const logradouro = document.getElementById('nd-logradouro').value.trim();
+  const numero     = document.getElementById('nd-numero').value.trim();
+  const bairro     = document.getElementById('nd-bairro').value.trim();
+  const cep        = document.getElementById('nd-cep').value.trim();
+
+  // Validações obrigatórias
+  const errEl = document.getElementById('nd-error');
+  errEl.style.display = 'none';
+  if(!cid)        { errEl.textContent='⚠️ ID do cliente é obrigatório.';    errEl.style.display='block'; return; }
+  if(!phone)      { errEl.textContent='⚠️ Telefone é obrigatório.';         errEl.style.display='block'; return; }
+  if(!client)     { errEl.textContent='⚠️ Nome do cliente é obrigatório.';  errEl.style.display='block'; return; }
+  if(!cep)        { errEl.textContent='⚠️ CEP é obrigatório.';              errEl.style.display='block'; return; }
+  if(!logradouro) { errEl.textContent='⚠️ Logradouro é obrigatório.';       errEl.style.display='block'; return; }
+  if(!numero)     { errEl.textContent='⚠️ Número é obrigatório.';           errEl.style.display='block'; return; }
+  if(!bairro)     { errEl.textContent='⚠️ Bairro é obrigatório.';           errEl.style.display='block'; return; }
+
+  const address      = logradouro + ', ' + numero + (document.getElementById('nd-complemento').value.trim() ? ' ' + document.getElementById('nd-complemento').value.trim() : '');
+  const neighborhood = bairro;
   const driver       = document.getElementById('nd-driver').value;
-  const neighborhood = document.getElementById('nd-neighborhood').value;
   const id           = nextId(state.deliveries);
 
-  // Fecha o modal imediatamente para não bloquear o usuário
+  // Salva ou atualiza cliente no cadastro
+  const clienteExistente = state.clientes.find(c => String(c.id) === cid);
+  const dadosCliente = {
+    id: parseInt(cid), nome: client,
+    telefone: phone, cpf: document.getElementById('nd-cpf').value.trim(),
+    cep, logradouro, numero: document.getElementById('nd-numero').value.trim(),
+    complemento: document.getElementById('nd-complemento').value.trim(),
+    bairro, cidade: document.getElementById('nd-cidade').value.trim(),
+  };
+  if(clienteExistente){
+    Object.assign(clienteExistente, dadosCliente);
+  } else {
+    state.clientes.push(dadosCliente);
+  }
+
   closeAddModal();
   showToast('Calculando distância...');
 
-  // Cadastra a entrega já (sem km por enquanto)
   const novaEntrega = {
     id, client, address, neighborhood,
-    phone:        document.getElementById('nd-phone').value.trim() || '',
+    clienteId:    parseInt(cid),
+    phone, cep, logradouro, numero: dadosCliente.numero,
     priority:     document.getElementById('nd-priority').value,
-    weight:       Number(document.getElementById('nd-weight').value) || 0,
     time:         document.getElementById('nd-time').value,
     driver:       driver || null,
     status:       driver ? 'em_rota' : 'pendente',
     order:        null,
     taxaEspecial: state._selectedEspecial || null,
     date:         new Date().toISOString().slice(0,10),
-    km:           null,
-    _lat:         null,
-    _lng:         null,
+    km:           null, _lat: null, _lng: null,
   };
   state.deliveries.push(novaEntrega);
   renderMain();
@@ -1955,141 +2117,9 @@ function salvarFaixas(){
 }
 
 // ── CÂMERA / IA ───────────────────────────────────────────────────────────────
-async function processImage(file) {
-  if(!file||!file.type.startsWith('image/')) return;
-  state.scanError=''; state.scanLoading=true; renderMain();
-  const reader=new FileReader();
-  reader.onload=async(ev)=>{
-    state.scanPreview=ev.target.result;
-    const b64=ev.target.result.split(',')[1];
-    try{
-      let apiKey = localStorage.getItem('anthropic_key');
-      if(!apiKey){
-        apiKey = prompt('Cole sua chave de API Anthropic (começa com sk-ant-):\n\nObtenha em: console.anthropic.com');
-        if(!apiKey){ throw new Error('Chave de API não informada.'); }
-        localStorage.setItem('anthropic_key', apiKey.trim());
-      }
-      const resp=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'x-api-key': apiKey.trim(),
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true'
-        },
-        body:JSON.stringify({
-          model:'claude-opus-4-5',
-          max_tokens:1000,
-          messages:[{role:'user',content:[
-            {type:'image',source:{type:'base64',media_type:file.type,data:b64}},
-            {type:'text',text:'Analise esta imagem e extraia informações de entrega. Retorne APENAS JSON sem markdown: {"client":"nome cliente/empresa","address":"rua e número","neighborhood":"bairro","pedido":"número pedido"}. Campos não encontrados deixe vazio.'}
-          ]}]
-        })
-      });
-      if(!resp.ok){
-        if(resp.status===401){ localStorage.removeItem('anthropic_key'); }
-        const err=await resp.json().catch(()=>({}));
-        throw new Error(err.error?.message||'Erro '+resp.status+' na API.');
-      }
-      const data=await resp.json();
-      const text=(data.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
-      let ex={};
-      try{ ex=JSON.parse(text); }catch{ throw new Error('IA não reconheceu os dados. Tente outra foto.'); }
-      if(ex.client) state.newDelivery.client=ex.client;
-      if(ex.address) state.newDelivery.address=ex.address;
-      if(ex.neighborhood){
-        const m=NEIGHBORHOODS.find(n=>n.toLowerCase().includes(ex.neighborhood.toLowerCase())||ex.neighborhood.toLowerCase().includes(n.toLowerCase()));
-        if(m) state.newDelivery.neighborhood=m;
-      }
-      showToast('Dados extraídos! Revise e confirme.');
-    }catch(err){
-      state.scanError=err.message||'Erro ao analisar imagem.';
-    }finally{
-      state.scanLoading=false; renderMain();
-    }
-  };
-  reader.readAsDataURL(file);
-}
 
-// ── CÂMERA: wiring único, feito uma vez no carregamento ────────────────────
+// ── WIRING DOS BOTÕES DO MODAL ───────────────────────────────────────────────
 (function(){
-  const inp = document.getElementById('inp-cam');
-  if(!inp) return;
-  inp.addEventListener('change', function(){
-    const file = this.files && this.files[0];
-    if(!file) return;
-    this.value = '';
-    // Show loading state
-    document.getElementById('cam-icon').innerHTML = '<span style="animation:spin 1s linear infinite;display:inline-block">⏳</span>';
-    document.getElementById('cam-text').textContent = 'Analisando com IA...';
-    document.getElementById('lbl-cam').style.pointerEvents = 'none';
-    document.getElementById('cam-error').style.display = 'none';
-    // Read file
-    const reader = new FileReader();
-    reader.onload = async function(ev){
-      const dataUrl = ev.target.result;
-      const b64 = dataUrl.split(',')[1];
-      try {
-        // Recupera ou solicita a chave de API
-        let apiKey = localStorage.getItem('anthropic_key');
-        if(!apiKey){
-          apiKey = prompt('Cole sua chave de API Anthropic (começa com sk-ant-):\n\nObtê-la em: console.anthropic.com');
-          if(!apiKey){ throw new Error('Chave de API não informada.'); }
-          localStorage.setItem('anthropic_key', apiKey.trim());
-        }
-
-        const resp = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey.trim(),
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
-          },
-          body: JSON.stringify({
-            model: 'claude-opus-4-5',
-            max_tokens: 1000,
-            messages: [{role:'user', content:[
-              {type:'image', source:{type:'base64', media_type:file.type, data:b64}},
-              {type:'text',  text:'Analise esta imagem e extraia informações de entrega. Retorne APENAS JSON sem markdown: {"client":"nome completo do cliente ou empresa","address":"rua e número","neighborhood":"bairro","phone":"telefone com DDD","pedido":"número do pedido"}. Campos não encontrados deixe como string vazia. Não invente dados.'}
-            ]}]
-          })
-        });
-        if(!resp.ok){
-          // Se chave inválida, limpa e pede novamente
-          if(resp.status === 401){ localStorage.removeItem('anthropic_key'); }
-          const err = await resp.json().catch(()=>({}));
-          throw new Error(err.error?.message || 'Erro ' + resp.status + ' na API.');
-        }
-        const data = await resp.json();
-        const text = (data.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
-        let ex = {};
-        try { ex = JSON.parse(text); } catch(e) { throw new Error('IA não reconheceu os dados.'); }
-        if(ex.client)  document.getElementById('nd-client').value  = ex.client;
-        if(ex.address) document.getElementById('nd-address').value = ex.address;
-        if(ex.phone)   document.getElementById('nd-phone').value   = ex.phone;
-        if(ex.neighborhood){
-          const m = NEIGHBORHOODS.find(n=>n.toLowerCase().includes(ex.neighborhood.toLowerCase())||ex.neighborhood.toLowerCase().includes(n.toLowerCase()));
-          if(m) document.getElementById('nd-neighborhood').value = m;
-        }
-        // Show preview
-        document.getElementById('cam-preview-img').src = dataUrl;
-        document.getElementById('cam-preview-wrap').style.display = 'block';
-        document.getElementById('lbl-cam').style.display = 'none';
-        showToast('Dados extraídos! Revise e confirme.');
-      } catch(err) {
-        const errEl = document.getElementById('cam-error');
-        errEl.textContent = '⚠️ ' + (err.message || 'Erro ao analisar imagem.');
-        errEl.style.display = 'block';
-      } finally {
-        document.getElementById('cam-icon').textContent = '📷';
-        document.getElementById('cam-text').textContent = 'Tirar foto / Galeria';
-        document.getElementById('lbl-cam').style.pointerEvents = '';
-      }
-    };
-    reader.readAsDataURL(file);
-  });
-
   document.getElementById('btn-cancel-entrega').addEventListener('click', closeAddModal);
   document.getElementById('btn-confirm-entrega').addEventListener('click', ()=>handleAddDelivery());
   document.getElementById('btn-toggle-especial').addEventListener('click', toggleEspecial);
