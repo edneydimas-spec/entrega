@@ -411,7 +411,6 @@ const PRIO_CFG = {
 
 // ── ORIGEM fixa e cálculo de distância ───────────────────────────────────────
 const ORIGIN_LAT = -19.9245;   // Rua Lagoa da Prata 1188, Salgado Filho, BH-MG
-const GS_URL = 'https://script.google.com/macros/s/AKfycbyJzO2QzBNvfX8NuuQXEqcgONg7pZ9wAL7UDXZw-DXCmRHsScJMV5gqiPdTIVOyLXH9Wg/exec';
 const ORIGIN_LNG = -43.9782;
 
 // Haversine — distância em km entre dois pontos lat/lng
@@ -479,118 +478,29 @@ function generateRoute(list){
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// GOOGLE SHEETS — carregar e salvar dados
+// LOCAL STORAGE — persistência de dados no dispositivo
 // ══════════════════════════════════════════════════════════════════════════════
 
-function gsJsonp(url) {
-  return new Promise((resolve, reject) => {
-    const cb = 'cb_' + Date.now();
-    const script = document.createElement('script');
-    window[cb] = (data) => {
-      delete window[cb];
-      document.body.removeChild(script);
-      resolve(data);
-    };
-    script.onerror = () => { delete window[cb]; document.body.removeChild(script); reject(new Error('Script load failed')); };
-    script.src = url + '&callback=' + cb;
-    document.body.appendChild(script);
-  });
+function lsSave() {
+  try {
+    localStorage.setItem('ea_entregadores', JSON.stringify(state.entregadores));
+    localStorage.setItem('ea_deliveries',   JSON.stringify(state.deliveries));
+    localStorage.setItem('ea_faixas',       JSON.stringify(state.faixas));
+    localStorage.setItem('ea_especiais',    JSON.stringify(state.taxasEspeciais));
+  } catch(e) { console.warn('lsSave error:', e); }
 }
 
-async function gsLoad() {
+function lsLoad() {
   try {
-    showToast('Carregando dados...');
-    const data = await gsJsonp(GS_URL + '?action=getAll');
-    if (data.error) throw new Error(data.error);
-
-    // Entregadores
-    if (data.entregadores && data.entregadores.length > 0) {
-      state.entregadores = data.entregadores.map(e => ({
-        id:       Number(e.id) || nextId(state.entregadores),
-        nome:     e.nome || '',
-        cpf:      e.cpf  || '',
-        telefone: e.telefone || '',
-        status:   e.status || 'ativo',
-      }));
-    }
-
-    // Entregas
-    if (data.entregas && data.entregas.length > 0) {
-      state.deliveries = data.entregas.map(e => ({
-        id:           Number(e.id),
-        client:       e.client || '',
-        address:      e.address || '',
-        neighborhood: e.neighborhood || '',
-        phone:        e.phone || '',
-        status:       e.status || 'pendente',
-        priority:     e.priority || 'media',
-        weight:       Number(e.weight) || 0,
-        time:         e.time || '09:00',
-        driver:       e.driver || null,
-        order:        e.order ? Number(e.order) : null,
-        taxaEspecial: e.taxaEspecial || null,
-        date:         e.date || '',
-        km:           e.km ? Number(e.km) : null,
-        _lat:         e._lat ? Number(e._lat) : null,
-        _lng:         e._lng ? Number(e._lng) : null,
-      }));
-    }
-
-    // Parametros
-    if (data.parametros && data.parametros.length > 0) {
-      const faixas = data.parametros.filter(p => p.tipo === 'faixa');
-      const especiais = data.parametros.filter(p => p.tipo === 'especial');
-      if (faixas.length > 0) {
-        state.faixas = faixas.map(f => ({
-          id:    Number(f.id),
-          label: f.label || '',
-          de:    f.de || '0',
-          ate:   f.ate || '0',
-          taxa:  f.taxa || '0',
-        }));
-      }
-      if (especiais.length > 0) {
-        state.taxasEspeciais = especiais.map(t => ({
-          id:    t.id || '',
-          label: t.label || '',
-          taxa:  t.taxa || '0',
-        }));
-      }
-    }
-
-    showToast('Dados carregados!');
-    renderMain();
-  } catch(err) {
-    showToast('Erro ao carregar dados: ' + err.message);
-    console.error('gsLoad error:', err);
-  }
-}
-
-async function gsSave(type) {
-  try {
-    let action, data;
-    if (type === 'entregadores') {
-      action = 'saveEntregadores';
-      data   = state.entregadores;
-    } else if (type === 'entregas') {
-      action = 'saveEntregas';
-      data   = state.deliveries.map(d => ({...d, _lat: d._lat||'', _lng: d._lng||''}));
-    } else if (type === 'parametros') {
-      action = 'saveParametros';
-      data   = [
-        ...state.faixas.map(f    => ({tipo:'faixa',    ...f})),
-        ...state.taxasEspeciais.map(t => ({tipo:'especial', ...t})),
-      ];
-    }
-    const url = `${GS_URL}?action=${action}&data=${encodeURIComponent(JSON.stringify(data))}`;
-    const result = await gsJsonp(url);
-    if (result.error) throw new Error(result.error);
-    return true;
-  } catch(err) {
-    console.error('gsSave error:', err);
-    showToast('Erro ao salvar: ' + err.message);
-    return false;
-  }
+    const ent = localStorage.getItem('ea_entregadores');
+    const del = localStorage.getItem('ea_deliveries');
+    const fax = localStorage.getItem('ea_faixas');
+    const esp = localStorage.getItem('ea_especiais');
+    if (ent) state.entregadores  = JSON.parse(ent);
+    if (del) state.deliveries    = JSON.parse(del);
+    if (fax) state.faixas        = JSON.parse(fax);
+    if (esp) state.taxasEspeciais= JSON.parse(esp);
+  } catch(e) { console.warn('lsLoad error:', e); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1828,10 +1738,10 @@ function attachEvents(){
 // ══════════════════════════════════════════════════════════════════════════════
 // AÇÕES
 // ══════════════════════════════════════════════════════════════════════════════
-function updateStatus(id, status){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,status}:d); showToast('Status: '+STATUS_CFG[status].label); renderMain(); gsSave('entregas'); }
-function updatePriority(id, priority){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,priority}:d); showToast('Prioridade: '+PRIO_CFG[priority].label); renderMain(); gsSave('entregas'); }
-function updateTime(id, time){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,time}:d); showToast('Horário atualizado: '+time); gsSave('entregas'); }
-function assignDriver(id, driver){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,driver:driver||null,status:driver?'em_rota':'pendente'}:d); renderMain(); gsSave('entregas'); }
+function updateStatus(id, status){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,status}:d); showToast('Status: '+STATUS_CFG[status].label); renderMain();  }
+function updatePriority(id, priority){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,priority}:d); showToast('Prioridade: '+PRIO_CFG[priority].label); renderMain();  }
+function updateTime(id, time){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,time}:d); showToast('Horário atualizado: '+time);  }
+function assignDriver(id, driver){ state.deliveries=state.deliveries.map(d=>d.id===id?{...d,driver:driver||null,status:driver?'em_rota':'pendente'}:d); renderMain();  }
 
 function openAddModal(){
   // Populate dropdowns
@@ -2065,14 +1975,12 @@ async function handleAddDelivery(){
       novaEntrega._lat = coords.lat;
       novaEntrega._lng = coords.lng;
       novaEntrega.km   = parseFloat(haversine(ORIGIN_LAT, ORIGIN_LNG, coords.lat, coords.lng).toFixed(2));
-      showToast('Entrega adicionada! Distância: ' + novaEntrega.km + ' km');
-    gsSave('entregas');
+      showToast('Entrega adicionada! Distância: ' + novaEntrega.km + ' km'); lsSave();
     } else {
-      showToast('Entrega adicionada! (distância não calculada)');
-    gsSave('entregas');
+      showToast('Entrega adicionada! (distância não calculada)'); lsSave();
     }
   } catch(e) {
-    showToast('Entrega adicionada! (distância não calculada)');
+    showToast('Entrega adicionada! (distância não calculada)'); lsSave();
   }
   renderMain();
 }
@@ -2089,16 +1997,14 @@ function handleAddDriver(){
   state.newDriver.nome = state.newDriver.nome.toUpperCase();
   state.newDriver.nome = state.newDriver.nome.toUpperCase();
   state.entregadores.push({...state.newDriver,id:nextId(state.entregadores)});
-  state._showDriverModal=false; showToast('Entregador cadastrado!'); renderMain();
-  gsSave('entregadores');
+  state._showDriverModal=false; showToast('Entregador cadastrado!'); lsSave(); renderMain();
 }
-function toggleDriverStatus(id){ state.entregadores=state.entregadores.map(e=>e.id===id?{...e,status:e.status==='ativo'?'inativo':'ativo'}:e); showToast('Status atualizado!'); renderMain(); gsSave('entregadores'); }
+function toggleDriverStatus(id){ state.entregadores=state.entregadores.map(e=>e.id===id?{...e,status:e.status==='ativo'?'inativo':'ativo'}:e); showToast('Status atualizado!'); renderMain();  }
 function handleDeleteDriver(id){
   const e=state.entregadores.find(x=>x.id===id);
   state.deliveries=state.deliveries.map(d=>d.driver===e.nome?{...d,driver:null,status:'pendente',order:null}:d);
   state.entregadores=state.entregadores.filter(x=>x.id!==id);
-  state.showDeleteConfirm=null; showToast(e.nome+' removido.'); renderMain();
-  gsSave('entregadores');
+  state.showDeleteConfirm=null; showToast(e.nome+' removido.'); lsSave(); renderMain();
 }
 
 function openRoutePanel(){ state._showRoutePanel=true; state.routeResult=null; renderMain(); }
@@ -2125,8 +2031,7 @@ function salvarTaxasEspeciais(){
     }
   }
   showToast('Taxas especiais salvas!');
-  renderMain();
-  gsSave('parametros');
+  lsSave(); renderMain();
 }
 
 // ── EXPORTAR EXCEL ────────────────────────────────────────────────────────────
@@ -2236,8 +2141,7 @@ function salvarFaixas(){
   }
   state.faixasSalvas=true; state.faixaSucesso=true;
   setTimeout(()=>{state.faixaSucesso=false;renderMain();},3000);
-  showToast('Parâmetros salvos!'); renderMain();
-  gsSave('parametros');
+  showToast('Parâmetros salvos!'); lsSave(); renderMain();
 }
 
 // ── CÂMERA / IA ───────────────────────────────────────────────────────────────
@@ -2255,7 +2159,8 @@ document.getElementById('btn-expand').onclick=()=>{ state.sidebarCollapsed=false
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.getElementById('footer-date').textContent='Hoje: '+new Date().toLocaleDateString('pt-BR');
-gsLoad();
+lsLoad();
+render();
 </script>
 </body>
 </html>
